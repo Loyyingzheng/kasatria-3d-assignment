@@ -79,8 +79,9 @@ git push
 - Table: 20 columns × 10 rows, 200 distinct card targets.
 - Sphere: all targets placed at the configured radius with outward-facing cards.
 - Grid: 5 columns × 4 rows × 10 layers = 200 distinct targets.
-- **Double Helix**: 100 paired levels, opposite strands separated by 180°, **2.65 turns** per strand, 44 units height per level. The previous configuration used over five turns and only 24 units between levels, visually resembling a cylinder.
-- Two subtle, projected SVG guide paths plus sparse cross-rungs improve the visibility of the double-helix structure without adding CSS3DObjects or overriding Net Worth colors.
+- **Double Helix**: 100 paired levels, opposite strands separated by 180°, **2.25 turns** per strand, 44 units height per level. The previous configuration used over five turns and only 24 units between levels, visually resembling a cylinder.
+- Double Helix uses two opposite-phase **card strands**, without any artificial blue or purple guide rails; 2.25 turns and wider spacing improve readability.
+- Every layout tab recenters the camera and restores a canonical viewing angle and zoom, including repeated clicks on the same tab. Default framing adapts to the viewport size.
 - Net Worth threshold tests: `< $100K` is red, `$100K–< $200K` is orange, and `≥ $200K` is green (including exact boundaries).
 - Realistic A:F Google Sheets values and API request construction are checked using mocks. Actual Google OAuth/Sheet permission and live browser visuals **require user-side testing**.
 
@@ -115,3 +116,10 @@ git push
 Retain your existing local `.git` directory; the deliverable ZIP does not include `.git`, `.env`, or a build output. GitHub Pages stays **Deploy from a branch → main → /(root)**, with no Vite step.
 
 **Manual acceptance:** on a desktop Chrome browser test each layout, orbit/zoom, Google login, 200 real Sheet records, visible red/orange/green boundaries, and live data refresh. Record a Chrome DevTools Performance trace before claiming a measurable FPS improvement; the automated tests cannot prove real-device FPS. See `VALIDATION.md`.
+
+## View switching and performance
+
+- The blue/purple helix guide lines have been removed. Double Helix uses two mathematically opposite card strands and preserves the Net Worth color coding.
+- Clicking any layout tab — including the current one — restores that layout’s default viewing angle, center and zoom. Camera position adapts to narrow viewports to reduce clipping.
+- The CSS3D scene keeps cached layouts, DOM reuse and event-driven rendering; it does not run continuous RAF while idle.
+- Manual testing is still required for actual Chrome FPS, image loading and live Google OAuth.

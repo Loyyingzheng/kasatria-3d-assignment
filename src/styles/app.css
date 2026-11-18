@@ -89,15 +89,9 @@ h1 { margin: 4px 0 0; font: 600 19px 'Space Grotesk',sans-serif; letter-spacing:
 @media(max-width:1180px) { .toolbar { padding:11px 20px; flex-wrap:wrap; gap:9px; flex-basis:auto; min-height:92px; } .helper-text {display:none;} .layout-controls { order:-1; margin:auto; } .legend { margin:auto; justify-content:center; } }
 @media(max-width:640px) { .app-header { height:72px; flex-basis:72px; padding:10px 14px; } .brand { gap:9px; } h1 { font-size:14px; } .brand-icon { width:34px; height:34px; font-size:21px; }.eyebrow {font-size:7px;} .header-actions {gap:5px;} .source-pill {font-size:9px; padding:7px 8px;} .header-button {font-size:9px; padding:7px 8px;} .auth-card {padding:32px 20px;} .toolbar {padding:10px;} .layout-btn {font-size:10px; padding:7px 9px;} .legend {gap:7px; font-size:9px;}.legend-title {font-size:8px; } .data-bar {left:12px; top:12px; padding:10px; gap:10px;} .data-bar-stat strong {font-size:11px;} .data-bar-stat span{font-size:7px;} }
 
-/* P2 — DNA-like guide rails are drawn behind the existing wealth-colored cards.
-   Only three SVG paths are used; no extra CSS3D DOM cards / 3D segments. */
+/* No decorative SVG rails: only the wealth-colored CSS3D person cards are rendered. */
 #three-container { isolation: isolate; }
 .css3d-canvas { position: absolute; inset: 0; z-index: 2; }
-.helix-guides { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-.helix-strand { fill: none; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; opacity: .9; vector-effect: non-scaling-stroke; }
-.strand-a { stroke: #79baff; }
-.strand-b { stroke: #be9eff; }
-.helix-rungs { fill: none; stroke: #bdd4f7; stroke-width: 1.2; stroke-dasharray: 5 8; opacity: .38; vector-effect: non-scaling-stroke; }
 /* P3 — only the moving phase uses the cheaper paint recipe. */
 #three-container.is-animating .person-card {
   box-shadow: none;

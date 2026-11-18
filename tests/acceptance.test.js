@@ -43,7 +43,7 @@ test('P2: sphere evenly distributed on intended radius and faces outward', () =>
   }
 });
 
-test('P2: double helix has 100 paired positions, 180-degree phase shift, and 2.65 turns', () => {
+test('P2: double helix has 100 paired positions, 180-degree phase shift, and 2.25 turns', () => {
   const helix = buildLayoutTargets(200).helix;
   const radius = LAYOUT_SETTINGS.helix.radius;
   for (let step = 0; step < 100; step++) {
@@ -58,7 +58,7 @@ test('P2: double helix has 100 paired positions, 180-degree phase shift, and 2.6
     assert.equal(a.horizontalFacing, true);
   }
   near(helix[0].position.y - helix[198].position.y, 99 * LAYOUT_SETTINGS.helix.rowSpacing);
-  // A single strand must travel 2.65 turns, not 5+ turns like the old cylinder-looking result.
+  // A single strand must travel 2.25 turns, not 5+ turns like the old cylinder-looking result.
   assert.ok(LAYOUT_SETTINGS.helix.turns > 2 && LAYOUT_SETTINGS.helix.turns < 3);
   assert.ok(APP_CONFIG.cameraDistances.helix > APP_CONFIG.cameraDistances.table);
 });

@@ -3,7 +3,7 @@ import { CSS3DObject, CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { buildLayoutTargets } from './layouts.js';
 import { smoothstep } from './animationMath.js';
-import { HelixGuides } from './helixGuides.js';
+import { getLayoutCameraFrame } from './cameraFraming.js';
 import { createPersonCard, updatePersonCard } from '../ui/personCard.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 
@@ -20,7 +20,6 @@ export class PeopleVisualizer {
     this.camera.position.z = APP_CONFIG.cameraDistance;
     this.renderer = new CSS3DRenderer();
     this.renderer.domElement.className = 'css3d-canvas';
-    this.guides = new HelixGuides(container);
     this.container.appendChild(this.renderer.domElement);
 
     this.controls = new TrackballControls(this.camera, this.renderer.domElement);
@@ -29,7 +28,8 @@ export class PeopleVisualizer {
     this.controls.rotateSpeed = 0.55;
     this.controls.zoomSpeed = 1.2;
     this.controls.panSpeed = 0.5;
-    this.controls.staticMoving = false;
+    // Disable Trackball inertia so each view can reset deterministically.
+    this.controls.staticMoving = true;
     this.controls.dynamicDampingFactor = 0.12;
 
     this.objects = [];
@@ -43,7 +43,6 @@ export class PeopleVisualizer {
     this._endCamera = new THREE.Vector3();
     this._startTarget = new THREE.Vector3();
     this._center = new THREE.Vector3();
-    this._direction = new THREE.Vector3();
     this._orientationHelper = new THREE.Object3D();
     this._facing = new THREE.Vector3();
     this.needsRender = true;
@@ -129,16 +128,14 @@ export class PeopleVisualizer {
 
     if (!count) {
       this.layout = 'table';
-      this.guides.setVisible(false);
       this.requestRender();
       return;
     }
     if (structureChanged) {
       this.layout = 'table';
-      this.changeLayout('table', APP_CONFIG.initialAnimationMs, true);
+      this.changeLayout('table', APP_CONFIG.initialAnimationMs);
     } else {
       // A Google Sheet refresh should not unexpectedly restart the user's orbit.
-      this.guides.setVisible(this.layout === 'helix' && !this.transition);
       this.requestRender();
     }
   }
@@ -146,12 +143,12 @@ export class PeopleVisualizer {
   finishTransition() {
     this.transition = null;
     this.container.classList.remove('is-animating');
-    this.guides.setVisible(false);
+    this.controls.enabled = true;
   }
 
-  changeLayout(layout, duration = APP_CONFIG.animationMs, force = false) {
+  changeLayout(layout, duration = APP_CONFIG.animationMs) {
     if (this.destroyed || !this.targets[layout] || !this.objects.length) return;
-    if (!force && this.layout === layout && !this.transition) return;
+    // Even clicking the selected layout resets its camera/zoom/orbit to default.
     this.finishTransition();
     this.layout = layout;
     for (let i = 0; i < this.objects.length; i++) {
@@ -160,10 +157,13 @@ export class PeopleVisualizer {
     }
     this._startCamera.copy(this.camera.position);
     this._startTarget.copy(this.controls.target);
-    this._direction.subVectors(this.camera.position, this.controls.target);
-    if (this._direction.lengthSq() < 1) this._direction.set(0, 0, 1);
-    this._endCamera.copy(this._direction.normalize())
-      .multiplyScalar(APP_CONFIG.cameraDistances[layout]);
+    const frame = getLayoutCameraFrame(
+      layout, this.targets[layout], this.lastWidth, this.lastHeight, this.camera.fov,
+    );
+    this._endCamera.set(frame.position.x, frame.position.y, frame.position.z);
+    this._center.set(0, 0, 0);
+    // Ignore dragging/zooming during the short camera reset transition.
+    this.controls.enabled = false;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.transition = {
       startedAt: null,
@@ -193,6 +193,18 @@ export class PeopleVisualizer {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.controls.handleResize();
+    // Responsive, centered framing: a previous narrow-view crop never persists.
+    const currentTargets = this.targets[this.layout];
+    if (currentTargets?.length) {
+      const frame = getLayoutCameraFrame(this.layout, currentTargets, width, height, this.camera.fov);
+      if (this.transition) {
+        this._endCamera.set(frame.position.x, frame.position.y, frame.position.z);
+      } else {
+        this.controls.target.set(0, 0, 0);
+        this.camera.position.set(frame.position.x, frame.position.y, frame.position.z);
+        this.camera.lookAt(this.controls.target);
+      }
+    }
     this.requestRender();
   }
 
@@ -211,11 +223,12 @@ export class PeopleVisualizer {
       }
       this.camera.position.lerpVectors(this._startCamera, this._endCamera, eased);
       this.controls.target.lerpVectors(this._startTarget, this._center, eased);
+      this.camera.lookAt(this.controls.target);
       this.needsRender = true;
       if (progress === 1) {
         this.transition = null;
         this.container.classList.remove('is-animating');
-        this.guides.setVisible(this.layout === 'helix');
+        this.controls.enabled = true;
       }
     }
 
@@ -225,7 +238,6 @@ export class PeopleVisualizer {
     this.controls.update();
     if (this.needsRender) {
       this.renderer.render(this.scene, this.camera);
-      this.guides.update(this.camera, this.targets.helix, this.lastWidth, this.lastHeight);
       this.needsRender = false;
     }
     if (this.transition || this.controlsActive || this.idleFrames < APP_CONFIG.idleFramesBeforeSleep) {
@@ -257,7 +269,6 @@ export class PeopleVisualizer {
       object.element.remove();
     }
     this.objects = [];
-    this.guides.destroy();
     this.renderer.domElement.remove();
     this.targetCache.clear();
   }
