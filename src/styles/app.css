@@ -71,7 +71,7 @@ h1 { margin: 4px 0 0; font: 600 19px 'Space Grotesk',sans-serif; letter-spacing:
 }
 
 /* The cards must remain CSS3D DOM nodes rather than WebGL textures. */
-.person-card { width: 142px; height: 198px; padding: 10px; color: #f9feff; border: 1px solid var(--tile-edge); border-radius: 8px; background: linear-gradient(150deg, var(--tile-bg), #081525ee 82%); box-shadow: 0 0 19px var(--tile-glow), inset 0 0 28px #00000025; text-align:center; transition: box-shadow .2s; overflow:hidden; cursor:pointer; backface-visibility: hidden; }
+.person-card { width: 142px; height: 198px; padding: 10px; color: #f9feff; border: 1px solid var(--tile-edge); border-radius: 8px; background: linear-gradient(150deg, var(--tile-bg), #081525ee 82%); box-shadow: 0 0 19px var(--tile-glow), inset 0 0 28px #00000025; text-align:center; transition: box-shadow .2s; overflow:hidden; cursor:pointer; backface-visibility: visible; -webkit-backface-visibility: visible; }
 .person-card:hover { box-shadow: 0 0 35px var(--tile-glow), 0 0 14px var(--tile-edge); }
 .band-low { --tile-bg:var(--tile-low-bg); --tile-edge:var(--tile-low-border); --tile-glow:var(--tile-low-glow); }
 .band-mid { --tile-bg:var(--tile-mid-bg); --tile-edge:var(--tile-mid-border); --tile-glow:var(--tile-mid-glow); }
@@ -133,3 +133,6 @@ h1 { margin: 4px 0 0; font: 600 19px 'Space Grotesk',sans-serif; letter-spacing:
 }
 
 .person-card img { user-select: none; -webkit-user-drag: none; }
+
+/* Double-sided CSS3D cards use backface-visibility: visible in .person-card.
+   From behind the face is mirrored rather than hidden. */

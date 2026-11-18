@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildLayoutTargets } from './layouts.js';
 import { smoothstep } from './animationMath.js';
 import { getLayoutCameraFrame, getCardFocusDistance } from './cameraFraming.js';
+import { enforceCanonicalCameraView } from './cameraReset.js';
 import { createPersonCard, updatePersonCard } from '../ui/personCard.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 
@@ -54,8 +55,6 @@ export class PeopleVisualizer {
     this._endTarget = new THREE.Vector3();
     this._orientationHelper = new THREE.Object3D();
     this._facing = new THREE.Vector3();
-    this._lastBillboardFacing = new THREE.Quaternion();
-    this._billboardInitialized = false;
     this.needsRender = true;
     this.lastWidth = 0;
     this.lastHeight = 0;
@@ -142,6 +141,8 @@ export class PeopleVisualizer {
         target.position = new THREE.Vector3(x, y, z);
         target.quaternion = new THREE.Quaternion();
         if (target.faceCamera) {
+          // Fixed default-view orientation: do not rotate cards every time the camera moves.
+          // With visible backfaces, the reverse side can be seen as a natural mirror image.
           const dir = APP_CONFIG.cameraDirections.helix;
           this._orientationHelper.position.set(0, 0, 0);
           this._orientationHelper.lookAt(this._facing.set(dir.x, dir.y, dir.z));
@@ -231,7 +232,6 @@ export class PeopleVisualizer {
     this.prepareCameraFlight();
     this.layout = layout;
     this.configureControlMode(layout);
-    this._billboardInitialized = false;
     for (let i = 0; i < this.objects.length; i++) {
       this.positionBuffer[i].copy(this.objects[i].position);
       this.rotationBuffer[i].copy(this.objects[i].quaternion);
@@ -265,14 +265,9 @@ export class PeopleVisualizer {
     object.element.classList.add('is-focus-target');
     this.container.classList.add('is-focused');
 
-    const direction = new THREE.Vector3();
-    if (this.layout === 'sphere') {
-      direction.copy(object.position).normalize();
-    } else if (this.layout === 'table' || this.layout === 'grid') {
-      direction.set(0, 0, 1); // Front side is legible; never focus on tile's back.
-    } else {
-      direction.copy(this.camera.position).sub(this.controls.target).normalize();
-    }
+    // Fly to the FRONT of the selected card. Backside is intentionally mirrored
+    // while orbiting, but close-up focus should present readable, normal text.
+    const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(object.quaternion).normalize();
     const distance = getCardFocusDistance(this.lastWidth, this.lastHeight, this.camera.fov);
     this._endTarget.copy(object.position);
     this._endCamera.copy(object.position).addScaledVector(direction, distance);
@@ -298,23 +293,6 @@ export class PeopleVisualizer {
     if (this.objects.length) this.changeLayout(this.layout, APP_CONFIG.focusAnimationMs);
   }
 
-  /** Both helix strands face the viewer, including during close-up camera moves. */
-  syncHelixBillboards() {
-    if (this.layout !== 'helix' || !this.objects.length || this.transition?.kind === 'layout') return;
-    const facing = this.camera.quaternion;
-    const same = this._billboardInitialized &&
-      Math.abs(this._lastBillboardFacing.dot(facing)) > 1 - 1e-10;
-    if (same) return;
-    if (this.focusedIndex !== null) {
-      this.objects[this.focusedIndex].quaternion.copy(facing);
-    } else {
-      for (const object of this.objects) object.quaternion.copy(facing);
-    }
-    this._lastBillboardFacing.copy(facing);
-    this._billboardInitialized = true;
-    this.needsRender = true;
-  }
-
   requestRender() {
     if (this.destroyed) return;
     this.needsRender = true;
@@ -333,11 +311,8 @@ export class PeopleVisualizer {
     if (this.focusedIndex !== null && this.objects[this.focusedIndex]) {
       const distance = getCardFocusDistance(width, height, this.camera.fov);
       const tile = this.objects[this.focusedIndex];
-      const direction = this.layout === 'sphere'
-        ? tile.position.clone().normalize()
-        : this.layout === 'helix'
-          ? this.camera.position.clone().sub(this.controls.target).normalize()
-          : new THREE.Vector3(0, 0, 1);
+      const direction = new THREE.Vector3(0, 0, 1)
+        .applyQuaternion(tile.quaternion).normalize();
       this._endTarget.copy(tile.position);
       this._endCamera.copy(tile.position).addScaledVector(direction, distance);
       if (!this.transition) {
@@ -351,8 +326,10 @@ export class PeopleVisualizer {
         this._endCamera.set(frame.position.x, frame.position.y, frame.position.z);
         this._endTarget.set(0, 0, 0);
         if (!this.transition) {
-          this.camera.position.copy(this._endCamera);
-          this.controls.target.copy(this._endTarget);
+          // A viewport resize must preserve the canonical upright overview too.
+          enforceCanonicalCameraView(
+            this.camera, this.controls, this.layout, this._endCamera, this._endTarget,
+          );
         }
       }
     }
@@ -379,14 +356,33 @@ export class PeopleVisualizer {
       this.camera.lookAt(this.controls.target);
       this.needsRender = true;
       if (eased >= 1) {
+        if (t.kind === 'layout') {
+          // Snap to exact cached transforms; interpolating rotations leaves tiny
+          // residual errors that can make a 20×10 Table appear slightly tilted.
+          for (let i = 0; i < this.objects.length; i++) {
+            this.objects[i].position.copy(t.targets[i].position);
+            this.objects[i].quaternion.copy(t.targets[i].quaternion);
+          }
+          // OrbitControls retains its own spherical state; synchronize it with
+          // an exact upright camera before allowing further mouse interaction.
+          enforceCanonicalCameraView(
+            this.camera, this.controls, this.layout, this._endCamera, this._endTarget,
+          );
+        } else {
+          this.camera.position.copy(this._endCamera);
+          this.controls.target.copy(this._endTarget);
+          this.camera.up.set(0, 1, 0);
+          this.camera.lookAt(this.controls.target);
+          const damping = this.controls.enableDamping;
+          this.controls.enableDamping = false;
+          this.controls.update();
+          this.controls.enableDamping = damping;
+        }
         this.finishTransition();
-        // OrbitControls is now calibrated against exactly this camera/target.
-        this.controls.update();
       }
     }
     this.idleFrames++;
     this.controls.update();
-    this.syncHelixBillboards();
     if (this.needsRender) {
       this.renderer.render(this.scene, this.camera);
       this.needsRender = false;

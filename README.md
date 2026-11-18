@@ -128,7 +128,7 @@ Retain your existing local `.git` directory; the deliverable ZIP does not includ
 
 - Previous version correctly placed the cards on two 180°-opposed helices, but the `faceOutward` orientation combined with CSS `backface-visibility: hidden` concealed the far-side cards and made the result look like a **single spiral**. Removing blue/purple guide lines had exposed this problem.
 - `layouts.js`: Double Helix positions remain 2.25 full turns per strand, 100 cards per strand, shared axis, exact 180° offset. Mark those 200 targets as `faceCamera` instead of `faceOutward`. Sphere cards still face outward.
-- `PeopleVisualizer.js`: initial target quaternions face the canonical helix camera; while orbiting, helix cards rotate toward the viewer so both strands stay readable. The updated renderer does not add decorative guide geometry or constantly run a RAF while idle.
+- `PeopleVisualizer.js`: initial target quaternions face the canonical helix camera; while orbiting, cards keep their original orientation, with the reverse side visible as a mirror image instead of disappearing. The updated renderer does not add decorative guide geometry or constantly run a RAF while idle.
 - `appConfig.js`: modestly adjusts the default helix camera direction to make paired strands visible. Clicking the current layout resets the default camera as before.
 - `tests/helix-visibility.test.js`: verifies that every target is camera-facing, all 100 A/B pairs exist, and projected horizontal separation is sufficient away from normal crossovers.
 - **Manual check needed:** Open local Preview (or Google Sheets), select Double Helix, see two crossing strands with readable cards, drag to orbit, then click Double Helix again to reset the view. Do not judge the result from the geometry tests alone; browser paint/occlusion still depends on the device.
@@ -155,3 +155,10 @@ OrbitControls from the same pinned Three.js version as the renderer.
 The display reads real Google Sheets data after OAuth sign-in; the fictional
 preview remains local-only (or explicitly enabled with `?preview=1`). Do not
 commit private Google credentials. Public OAuth Web Client IDs are not secrets.
+
+## Canonical Table reset and visible card backfaces
+
+- Clicking any layout returns the scene to the layout's default camera; for Table, the completion phase snaps **exactly** to `(0, 0, +distance)` with identity camera and card rotation and an origin target. Resize also restores the canonical overview.
+- All card backfaces are now visible. Orbiting behind a card shows its mirrored reverse rather than a disappearing tile. A click-to-focus camera flight approaches the selected tile's front normal to keep its text readable.
+- Double Helix keeps its two opposite strands and fixed card orientations, without decorative lines or continuous billboarding that could hide the actual 3D rotation.
+- Verify the result in desktop Chrome; the automated tests do not measure actual rendering/FPS.
