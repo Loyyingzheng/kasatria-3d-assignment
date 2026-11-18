@@ -12,6 +12,7 @@ class FakeNode {
     this.dataset = {};
     this.textContent = '';
     this.hidden = false;
+    this.attributes = {};
     this.classList = {
       contains: value => this.className.split(' ').includes(value),
       remove: (...names) => { this.className = this.className.split(' ').filter(n => !names.includes(n)).join(' '); },
@@ -21,6 +22,8 @@ class FakeNode {
   append(...nodes) { this.children.push(...nodes); }
   remove() { this.removed = true; }
   addEventListener() {}
+  setAttribute(name, value) { this.attributes[name] = value; }
+  getAttribute(name) { return this.attributes[name]; }
   querySelector(selector) {
     for (const node of this.children) {
       if (selector.startsWith('.') && node.className.split(' ').includes(selector.slice(1))) return node;
@@ -38,6 +41,9 @@ test('P3: refreshing unchanged photos/text keeps the same card/photo nodes', () 
   try {
     const person = { id: 1, name: 'Lee', country: 'MY', interest: 'Writing', age: 25, photo: 'https://example.org/photo.jpg', netWorth: 250000, band: 'high' };
     const card = createPersonCard(person);
+    assert.equal(card.tabIndex, 0);
+    assert.equal(card.getAttribute('role'), 'button');
+    assert.match(card.getAttribute('aria-label'), /Lee/);
     const photo = card.querySelector('img');
     assert.ok(photo && photo.loading === 'lazy' && photo.decoding === 'async');
     updatePersonCard(card, person);
@@ -46,6 +52,7 @@ test('P3: refreshing unchanged photos/text keeps the same card/photo nodes', () 
     updatePersonCard(card, second);
     assert.strictEqual(card.querySelector('img'), photo);
     assert.equal(card.querySelector('.card-name').textContent, 'Lee Updated');
+    assert.match(card.getAttribute('aria-label'), /Lee Updated/);
     assert.equal(card.querySelector('.worth-value').textContent, '$120,000');
     assert.equal(card.classList.contains('band-mid'), true);
     assert.equal(card.classList.contains('band-high'), false);

@@ -51,6 +51,24 @@
           <div class="data-bar-stat"><strong>3D</strong><span>INTERACTIVE</span></div>
         </div>
         <div id="notice" class="notice" hidden role="status"></div>
+        <aside id="person-detail" class="person-detail" aria-label="Selected person details" hidden>
+          <div class="detail-top">
+            <span class="eyebrow">PERSON PROFILE</span>
+            <button id="detail-close" type="button" class="detail-close" aria-label="Close details and reset view">✕</button>
+          </div>
+          <div class="detail-photo-wrap">
+            <span id="detail-initial" class="detail-initial"></span>
+            <img id="detail-photo" alt="Profile photo" referrerpolicy="no-referrer" hidden />
+          </div>
+          <h2 id="detail-name" class="detail-name"></h2>
+          <dl class="detail-fields">
+            <div><dt>Age</dt><dd id="detail-age"></dd></div>
+            <div><dt>Country</dt><dd id="detail-country"></dd></div>
+            <div><dt>Interest</dt><dd id="detail-interest"></dd></div>
+            <div><dt>Net Worth</dt><dd id="detail-worth"></dd></div>
+          </dl>
+          <button id="detail-back" class="detail-back" type="button">Back to overview</button>
+        </aside>
       </main>
 
       <footer id="toolbar" class="toolbar" hidden>
@@ -66,7 +84,8 @@
           <button class="layout-btn" data-layout="helix" title="Switch to Double Helix and reset the camera" type="button">Double Helix</button>
           <button class="layout-btn" data-layout="grid" title="Switch to Grid and reset the camera" type="button">Grid <small>5×4×10</small></button>
         </div>
-        <span class="helper-text">DRAG TO ORBIT · SCROLL TO ZOOM · SELECT VIEW TO RESET CAMERA</span>
+        <button id="reset-view-btn" class="header-button" type="button" title="Restore this layout's default camera">Reset View</button>
+        <span class="helper-text">SCROLL TO CURSOR ZOOM · CLICK A CARD TO FOCUS</span>
       </footer>
     </div>
     <!-- Browser-native ES Modules: same pinned Three.js version for core and addons. -->

@@ -49,3 +49,31 @@ test('camera adapts to smaller widths without changing layout data', () => {
   assert.ok(extraNarrow.distance > wide.distance);
   assert.equal(targets.length, 200);
 });
+
+test('Table and Sphere open straight-on with no camera tilt or roll', () => {
+  const targets = buildLayoutTargets(200);
+  for (const layout of ['table', 'sphere']) {
+    const camera = getLayoutCameraFrame(layout, targets[layout], 1024, 650);
+    assert.equal(camera.direction.x, 0);
+    assert.equal(camera.direction.y, 0);
+    assert.equal(camera.direction.z, 1);
+    assert.equal(camera.position.x, 0);
+    assert.equal(camera.position.y, 0);
+    assert.ok(camera.position.z > 0);
+  }
+  assert.ok(targets.table.every(t => t.position.z === 0));
+});
+
+test('focus camera fits an entire 142×198 card in the available viewport', async () => {
+  const { getCardFocusDistance } = await import('../src/scene/cameraFraming.js');
+  for (const [w, h] of [[1400, 780], [900, 540], [320, 560]]) {
+    const distance = getCardFocusDistance(w, h, 46);
+    const focal = h / (2 * Math.tan(46 * Math.PI / 360));
+    const projectedW = 142 * focal / distance;
+    const projectedH = 198 * focal / distance;
+    assert.ok(projectedW <= w * APP_CONFIG.focusedCardFill.width + 1);
+    assert.ok(projectedH <= h * APP_CONFIG.focusedCardFill.height + 1);
+    assert.ok(projectedW > 30, 'Readable minimum card size');
+    assert.ok(distance >= 330 && distance <= 1400);
+  }
+});

@@ -71,7 +71,7 @@ h1 { margin: 4px 0 0; font: 600 19px 'Space Grotesk',sans-serif; letter-spacing:
 }
 
 /* The cards must remain CSS3D DOM nodes rather than WebGL textures. */
-.person-card { width: 142px; height: 198px; padding: 10px; color: #f9feff; border: 1px solid var(--tile-edge); border-radius: 8px; background: linear-gradient(150deg, var(--tile-bg), #081525ee 82%); box-shadow: 0 0 19px var(--tile-glow), inset 0 0 28px #00000025; text-align:center; transition: box-shadow .2s; overflow:hidden; cursor:default; backface-visibility: hidden; }
+.person-card { width: 142px; height: 198px; padding: 10px; color: #f9feff; border: 1px solid var(--tile-edge); border-radius: 8px; background: linear-gradient(150deg, var(--tile-bg), #081525ee 82%); box-shadow: 0 0 19px var(--tile-glow), inset 0 0 28px #00000025; text-align:center; transition: box-shadow .2s; overflow:hidden; cursor:pointer; backface-visibility: hidden; }
 .person-card:hover { box-shadow: 0 0 35px var(--tile-glow), 0 0 14px var(--tile-edge); }
 .band-low { --tile-bg:var(--tile-low-bg); --tile-edge:var(--tile-low-border); --tile-glow:var(--tile-low-glow); }
 .band-mid { --tile-bg:var(--tile-mid-bg); --tile-edge:var(--tile-mid-border); --tile-glow:var(--tile-mid-glow); }
@@ -101,3 +101,35 @@ h1 { margin: 4px 0 0; font: 600 19px 'Space Grotesk',sans-serif; letter-spacing:
 @media (prefers-reduced-motion: reduce) {
   .person-card { transition: none; }
 }
+
+/* All cards are interactive; nested fields delegate to the same click action. */
+.person-card { outline: none; }
+.person-card:focus-visible { outline: 3px solid var(--color-accent-light); outline-offset: 4px; }
+#three-container.is-focused .person-card:not(.is-focus-target) { visibility: hidden; pointer-events: none; }
+#three-container.is-focused .person-card.is-focus-target { box-shadow: 0 0 30px var(--tile-glow); cursor: default; }
+
+/* A compact details panel supplements camera focus without covering the centered card. */
+.person-detail { position:absolute; right:20px; top:22px; width:min(270px, 30vw); max-height:calc(100% - 42px); overflow:auto;
+  background:#0c1a2cee; color:#eef7ff; z-index:16; padding:18px; border-radius:16px;
+  border:1px solid #91b8cc54; box-shadow:0 15px 55px #0008; backdrop-filter:blur(8px); }
+.detail-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.detail-close { background:#fff1; color:#e7f6ff; border:1px solid #fff2; border-radius:8px; padding:6px 9px; }
+.detail-photo-wrap { width:76px; height:76px; margin:13px 0 8px; border-radius:12px; overflow:hidden; border:1px solid #ffffff3c; background:#1b3549; }
+.detail-photo-wrap img { width:100%; height:100%; object-fit:cover; }
+.detail-initial { display:grid; place-items:center; height:100%; font-size:32px; }
+.detail-name { font-size:18px; line-height:1.3; margin:10px 0 16px; overflow-wrap:anywhere; }
+.detail-fields { margin:0; display:grid; gap:12px; }
+.detail-fields>div { border-bottom:1px solid #ffffff17; padding-bottom:8px; }
+.detail-fields dt { font-size:10px; letter-spacing:.1em; color:#a4b8ca; text-transform:uppercase; }
+.detail-fields dd { margin:5px 0 0; font-size:15px; font-weight:600; overflow-wrap:anywhere; }
+.detail-back { width:100%; margin-top:18px; border-radius:10px; background:var(--color-accent-light); color:#08222b; font-weight:700; border:0; padding:11px; }
+@media(max-width:760px) {
+  .person-detail { top:auto; bottom:12px; right:12px; width:min(240px, 66vw); max-height:46%; padding:12px; }
+  .detail-photo-wrap { width:45px; height:45px; margin:8px 0 2px; }
+  .detail-name {font-size:15px; margin:6px 0;}
+  .detail-fields { gap:6px; grid-template-columns:1fr 1fr; }
+  .detail-fields dd {font-size:12px;}
+  .detail-back { margin-top:10px; padding:8px; font-size:12px; }
+}
+
+.person-card img { user-select: none; -webkit-user-drag: none; }

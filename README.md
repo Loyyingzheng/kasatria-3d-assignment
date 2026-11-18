@@ -123,3 +123,35 @@ Retain your existing local `.git` directory; the deliverable ZIP does not includ
 - Clicking any layout tab — including the current one — restores that layout’s default viewing angle, center and zoom. Camera position adapts to narrow viewports to reduce clipping.
 - The CSS3D scene keeps cached layouts, DOM reuse and event-driven rendering; it does not run continuous RAF while idle.
 - Manual testing is still required for actual Chrome FPS, image loading and live Google OAuth.
+
+## Double Helix visibility fix (18 November 2026)
+
+- Previous version correctly placed the cards on two 180°-opposed helices, but the `faceOutward` orientation combined with CSS `backface-visibility: hidden` concealed the far-side cards and made the result look like a **single spiral**. Removing blue/purple guide lines had exposed this problem.
+- `layouts.js`: Double Helix positions remain 2.25 full turns per strand, 100 cards per strand, shared axis, exact 180° offset. Mark those 200 targets as `faceCamera` instead of `faceOutward`. Sphere cards still face outward.
+- `PeopleVisualizer.js`: initial target quaternions face the canonical helix camera; while orbiting, helix cards rotate toward the viewer so both strands stay readable. The updated renderer does not add decorative guide geometry or constantly run a RAF while idle.
+- `appConfig.js`: modestly adjusts the default helix camera direction to make paired strands visible. Clicking the current layout resets the default camera as before.
+- `tests/helix-visibility.test.js`: verifies that every target is camera-facing, all 100 A/B pairs exist, and projected horizontal separation is sufficient away from normal crossovers.
+- **Manual check needed:** Open local Preview (or Google Sheets), select Double Helix, see two crossing strands with readable cards, drag to orbit, then click Double Helix again to reset the view. Do not judge the result from the geometry tests alone; browser paint/occlusion still depends on the device.
+
+## Interactive camera and person details (Nov 18 update)
+
+The website now uses **OrbitControls** (not TrackballControls). This is still a
+buildless static website. The `three/addons/` import map in `index.html` loads
+OrbitControls from the same pinned Three.js version as the renderer.
+
+- **Table 20×10:** the default camera looks straight at the `z=0` wall with
+  `up=(0,1,0)`, so it is never tilted by default. Left drag pans; right drag rotates.
+- **Sphere:** the default camera also looks straight forward. Left drag rotates.
+- **Double Helix / Grid:** keep the designed 3D perspective. Left drag rotates.
+- **All four layouts:** wheel zooms towards the pointer (`zoomToCursor`), and
+  right-drag pans except on Table. Touch gestures are supported.
+- **Click any card field:** camera flies to the selected card and zooms to a
+  readable scale; the details panel shows name, age, country, interest, net
+  worth and photo. The entire card is keyboard accessible (Enter / Space).
+- **Return to overview:** close the detail panel, press Escape, click `Reset
+  View`, or click the active layout button again. Each layout switch restores
+  that view's own default camera and zoom.
+
+The display reads real Google Sheets data after OAuth sign-in; the fictional
+preview remains local-only (or explicitly enabled with `?preview=1`). Do not
+commit private Google credentials. Public OAuth Web Client IDs are not secrets.

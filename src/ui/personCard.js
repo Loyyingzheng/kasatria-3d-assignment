@@ -14,6 +14,7 @@ function updateText(node, text) {
 
 /** A reusable DOM card. Updating data does not recreate the 3D object or reload unchanged photos. */
 export function updatePersonCard(tile, person) {
+  tile.setAttribute('aria-label', `View details for ${person.name}`);
   const bandClass = `band-${person.band}`;
   if (!tile.classList.contains(bandClass)) {
     tile.classList.remove('band-low', 'band-mid', 'band-high');
@@ -39,6 +40,7 @@ export function updatePersonCard(tile, person) {
       img.loading = 'lazy';
       img.decoding = 'async';
       img.fetchPriority = 'low';
+      img.draggable = false;
       img.alt = `Photo of ${person.name}`;
       img.referrerPolicy = 'no-referrer';
       img.addEventListener('load', () => {
@@ -59,6 +61,9 @@ export function updatePersonCard(tile, person) {
 
 export function createPersonCard(person) {
   const tile = makeNode('div', 'person-card');
+  tile.setAttribute('role', 'button');
+  tile.tabIndex = 0;
+  tile.setAttribute('aria-label', `View details for ${person.name}`);
   const top = makeNode('div', 'card-top');
   top.append(makeNode('span', 'card-number'), makeNode('span', 'card-country'));
   tile.append(top);

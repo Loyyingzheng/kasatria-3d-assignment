@@ -38,3 +38,17 @@ export function getLayoutCameraFrame(layout, targets, width, height, fovDegrees 
     target: { x: 0, y: 0, z: 0 },
   };
 }
+
+/**
+ * Distance required to display a 142×198 CSS3D tile at a comfortable size.
+ * The camera can zoom further on small screens without clipping either axis.
+ */
+export function getCardFocusDistance(width, height, fovDegrees = 46) {
+  const h = Math.max(1, height);
+  const w = Math.max(1, width);
+  const focalLength = h / (2 * Math.tan(fovDegrees * Math.PI / 360));
+  const { width: fillWidth, height: fillHeight } = APP_CONFIG.focusedCardFill;
+  const fittedHeight = 198 * focalLength / Math.max(1, h * fillHeight);
+  const fittedWidth = 142 * focalLength / Math.max(1, w * fillWidth);
+  return Math.max(330, Math.min(1400, Math.max(fittedHeight, fittedWidth)));
+}
