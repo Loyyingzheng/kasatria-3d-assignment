@@ -1,6 +1,20 @@
+
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+
+# Environment files
 .env
 .env.*.local
+
+# Logs
 *.log
+
+# System files
 .DS_Store
+
+# Private interview study notes
+/Kasatria_面试深度学习手册.docx
+/Kasatria_%E9%9D%A2%E8%AF%95%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%89%8B%E5%86%8C.docx
