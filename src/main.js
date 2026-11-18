@@ -6,7 +6,6 @@ import {
 } from './services/googleApi.js';
 import { createFictionalPreview } from './data/previewPeople.js';
 import { PeopleVisualizer } from './scene/PeopleVisualizer.js';
-import { showPersonDetail, hidePersonDetail } from './ui/personDetail.js';
 import { createSessionStore } from './state/sessionStore.js';
 import { element as $, showNotice, showSession, setBusy, setLayoutControls, initWealthLegend } from './ui/appUi.js';
 
@@ -15,12 +14,7 @@ const previewEnabled = ['localhost', '127.0.0.1'].includes(window.location.hostn
 $('demo-btn').hidden = !previewEnabled;
 
 const session = createSessionStore();
-const visualizer = new PeopleVisualizer($('three-container'), {
-  onSelectPerson: showPersonDetail,
-  onClearSelection: hidePersonDetail,
-});
-$('detail-close').addEventListener('click', () => visualizer.clearFocus());
-$('detail-back').addEventListener('click', () => visualizer.clearFocus());
+const visualizer = new PeopleVisualizer($('three-container'));
 $('reset-view-btn').addEventListener('click', () => visualizer.resetView());
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') visualizer.clearFocus();

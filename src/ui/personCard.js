@@ -1,3 +1,5 @@
+import { createFocusedProfile } from './personDetail.js';
+import { APP_CONFIG } from '../config/appConfig.js';
 import { formatCurrency } from '../services/peopleMapper.js';
 
 function makeNode(tag, className, text) {
@@ -56,7 +58,30 @@ export function updatePersonCard(tile, person) {
   } else if (existing && existing.alt !== `Photo of ${person.name}`) {
     existing.alt = `Photo of ${person.name}`;
   }
+  if (tile.classList.contains('is-focus-target')) {
+    const oldProfile = tile.querySelector('.focus-profile');
+    if (oldProfile) oldProfile.replaceWith(createFocusedProfile(person));
+  }
   return tile;
+}
+
+/** Expand only the selected DOM card; all details remain attached to its 3D position. */
+export function showFocusedCard(tile, person) {
+  tile.style.setProperty('--focused-card-width', `${APP_CONFIG.focusCard.width}px`);
+  tile.style.setProperty('--focused-card-height', `${APP_CONFIG.focusCard.height}px`);
+  tile.querySelector('.focus-profile')?.remove();
+  tile.append(createFocusedProfile(person));
+  tile.classList.add('is-focus-target');
+  tile.setAttribute('role', 'group');
+  tile.tabIndex = -1;
+}
+
+export function hideFocusedCard(tile) {
+  if (!tile) return;
+  tile.querySelector('.focus-profile')?.remove();
+  tile.classList.remove('is-focus-target');
+  tile.setAttribute('role', 'button');
+  tile.tabIndex = 0;
 }
 
 export function createPersonCard(person) {
@@ -64,16 +89,18 @@ export function createPersonCard(person) {
   tile.setAttribute('role', 'button');
   tile.tabIndex = 0;
   tile.setAttribute('aria-label', `View details for ${person.name}`);
+  const compact = makeNode('div', 'card-compact');
   const top = makeNode('div', 'card-top');
   top.append(makeNode('span', 'card-number'), makeNode('span', 'card-country'));
-  tile.append(top);
+  compact.append(top);
   const wrap = makeNode('div', 'card-photo');
   wrap.append(makeNode('div', 'photo-placeholder'));
-  tile.append(wrap);
-  tile.append(makeNode('div', 'card-name'));
-  tile.append(makeNode('div', 'card-meta'));
+  compact.append(wrap);
+  compact.append(makeNode('div', 'card-name'));
+  compact.append(makeNode('div', 'card-meta'));
   const bottom = makeNode('div', 'card-bottom');
   bottom.append(makeNode('span', 'worth-label', 'NET WORTH'), makeNode('strong', 'worth-value'));
-  tile.append(bottom);
+  compact.append(bottom);
+  tile.append(compact);
   return updatePersonCard(tile, person);
 }

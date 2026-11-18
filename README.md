@@ -146,11 +146,24 @@ OrbitControls from the same pinned Three.js version as the renderer.
 - **All four layouts:** wheel zooms towards the pointer (`zoomToCursor`), and
   right-drag pans except on Table. Touch gestures are supported.
 - **Click any card field:** camera flies to the selected card and zooms to a
-  readable scale; the details panel shows name, age, country, interest, net
-  worth and photo. The entire card is keyboard accessible (Enter / Space).
-- **Return to overview:** close the detail panel, press Escape, click `Reset
-  View`, or click the active layout button again. Each layout switch restores
+  readable scale; the selected 3D tile itself expands to show the complete
+  photo, name, age, country, interest and net worth. The other tiles are hidden
+  while reading. The overview tiles support keyboard activation (Enter / Space).
+- **Return to overview:** click × on the focused profile, press Escape,
+  click `Reset View`, or click the active layout button again. Each layout switch restores
   that view's own default camera and zoom.
+
+### In-scene profile focus (no popup or duplicate data source)
+
+The selected person keeps their real `CSS3DObject` position. `focusPerson()`
+computes the world-space front normal and flies the camera to that point,
+while slerping the camera orientation so the person's card faces the viewer.
+Only the selected DOM card mounts a larger `focus-profile` (320×454 CSS3D units).
+The other 199 cards do not pay the cost of rendering full profiles. Photo and
+fields are populated from the same parsed Google Sheet record as the overview.
+Focus distance is calculated from the expanded profile dimensions, not the
+small thumbnail dimensions. The camera transition respects reduced-motion
+preferences, and every layout switch restores its default camera pose.
 
 The display reads real Google Sheets data after OAuth sign-in; the fictional
 preview remains local-only (or explicitly enabled with `?preview=1`). Do not

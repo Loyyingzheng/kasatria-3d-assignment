@@ -15,7 +15,9 @@ export const APP_CONFIG = Object.freeze({
   cameraDistances: Object.freeze({ table: 4200, sphere: 5250, helix: 7400, grid: 5800 }),
   framingFillRatio: 0.82,
   focusAnimationMs: 720,
-  focusedCardFill: Object.freeze({ width: 0.52, height: 0.62 }),
+  // Expanded in-world profile dimensions in CSS3D units, not screen pixels.
+  focusCard: Object.freeze({ width: 320, height: 454 }),
+  focusedCardFill: Object.freeze({ width: 0.70, height: 0.80 }),
   // Native CSS3D transforms are expensive; avoid running RAFs while idle.
   idleFramesBeforeSleep: 4,
 });

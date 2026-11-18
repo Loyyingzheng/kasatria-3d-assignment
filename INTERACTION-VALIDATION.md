@@ -7,8 +7,8 @@
 - Sphere at canonical front view (camera +Z, up +Y); left drag orbits.
 - Helix and Grid retain their 3D cameras and left-drag orbit.
 - All fields in every person card share click and keyboard selection.
-- Selected person camera-fly uses a viewport-relative fit for 142×198 cards, preserving a readable field of view.
-- Additional accessible detail panel; close / Escape / Reset View returns to overview.
+- Selected-person camera flight fits the full 320×454 in-scene profile (photo, name, age, country, interest, net worth) against the current viewport.
+- Only the chosen CSS3D card dynamically mounts the complete profile. Close × / Escape / Reset View returns to overview; no separate fixed sidebar is needed.
 - Layout changes clear focus and restore the per-layout default camera.
 - Cached 3D layout targets, DOM reuse and event-driven rendering retained.
 
@@ -25,8 +25,8 @@ canonical Table/Sphere camera directions, focus sizing and card DOM semantics.
 - On each layout, click a visible card *text or photo*: focus it at screen center, zoom in and show readable details.
 - Right-drag Grid/Sphere/Helix to pan, and confirm that wheel zoom still follows the cursor.
 - Drag across card: must not open details as an accidental click.
-- Click detail close / Back / Reset / Escape to return to overview.
-- Switch layout after focusing: previous detail panel closes; default layout camera returns.
+- Click the focused profile’s ×, Reset View or Escape to return to overview.
+- Switch layout after focusing: previous expanded profile closes; default layout camera returns.
 - Ensure Google Sheet data remains live and no fictional data is used on the public URL.
 
 Real-browser visual/FPS acceptance is outstanding: Chromium was unable to open

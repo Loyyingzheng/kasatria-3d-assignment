@@ -22,5 +22,7 @@ test('card clicks and keyboard activation have a focus & reset path', () => {
   assert.match(visualizer, /camera\.up\.set\(0, 1, 0\)/);
   assert.match(entry, /reset-view-btn/);
   assert.match(entry, /visualizer\.clearFocus\(\)/);
-  assert.match(html, /id="person-detail"/);
+  assert.doesNotMatch(html, /id="person-detail"/);
+  assert.match(visualizer, /showFocusedCard\(object\.element, this\.people\[index\]\)/);
+  assert.match(visualizer, /hideFocusedCard\(this\.objects\[this\.focusedIndex\]\?\.element\)/);
 });

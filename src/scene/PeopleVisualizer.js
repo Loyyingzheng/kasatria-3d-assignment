@@ -5,7 +5,7 @@ import { buildLayoutTargets } from './layouts.js';
 import { smoothstep } from './animationMath.js';
 import { getLayoutCameraFrame, getCardFocusDistance } from './cameraFraming.js';
 import { enforceCanonicalCameraView } from './cameraReset.js';
-import { createPersonCard, updatePersonCard } from '../ui/personCard.js';
+import { createPersonCard, updatePersonCard, showFocusedCard, hideFocusedCard } from '../ui/personCard.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 
 /**
@@ -50,6 +50,10 @@ export class PeopleVisualizer {
     this.positionBuffer = [];
     this.rotationBuffer = [];
     this._startCamera = new THREE.Vector3();
+    this._startCameraQuaternion = new THREE.Quaternion();
+    this._endCameraQuaternion = new THREE.Quaternion();
+    this._worldUp = new THREE.Vector3(0, 1, 0);
+    this._cameraLookAtMatrix = new THREE.Matrix4();
     this._endCamera = new THREE.Vector3();
     this._startTarget = new THREE.Vector3();
     this._endTarget = new THREE.Vector3();
@@ -86,13 +90,18 @@ export class PeopleVisualizer {
     this._onPointerUp = () => { this._pointerStart = null; };
     this._onClick = (event) => {
       const card = event.target.closest?.('.person-card');
+      if (event.target.closest?.('.focus-close')) {
+        event.preventDefault();
+        this.clearFocus();
+        return;
+      }
       if (!card || this._pointerMoved || this.transition) return;
       this.focusPerson(Number(card.dataset.cardIndex));
     };
     this._onKeyDown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       const card = event.target.closest?.('.person-card');
-      if (!card || this.transition) return;
+      if (!card || this.transition || event.target.closest?.('.focus-close')) return;
       event.preventDefault();
       if (event.repeat) return;
       this.focusPerson(Number(card.dataset.cardIndex));
@@ -216,6 +225,7 @@ export class PeopleVisualizer {
     this.controls.update();
     this.controls.enabled = false;
     this._startCamera.copy(this.camera.position);
+    this._startCameraQuaternion.copy(this.camera.quaternion);
     this._startTarget.copy(this.controls.target);
   }
 
@@ -241,6 +251,13 @@ export class PeopleVisualizer {
     );
     this._endCamera.set(frame.position.x, frame.position.y, frame.position.z);
     this._endTarget.set(0, 0, 0);
+    // Camera looks down its -Z axis (unlike Object3D's +Z). Using the
+    // generic orientation helper here would make the overview flip 180°.
+    this._endCameraQuaternion.setFromRotationMatrix(
+      this._cameraLookAtMatrix.lookAt(
+        this._endCamera, this._endTarget, this._worldUp,
+      ),
+    );
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.transition = {
       kind: 'layout', startedAt: null,
@@ -260,9 +277,9 @@ export class PeopleVisualizer {
     const object = this.objects[index];
     if (this.focusedIndex === index) return;
     this.prepareCameraFlight();
-    if (this.focusedIndex !== null) this.objects[this.focusedIndex]?.element.classList.remove('is-focus-target');
+    if (this.focusedIndex !== null) hideFocusedCard(this.objects[this.focusedIndex]?.element);
     this.focusedIndex = index;
-    object.element.classList.add('is-focus-target');
+    showFocusedCard(object.element, this.people[index]);
     this.container.classList.add('is-focused');
 
     // Fly to the FRONT of the selected card. Backside is intentionally mirrored
@@ -271,6 +288,9 @@ export class PeopleVisualizer {
     const distance = getCardFocusDistance(this.lastWidth, this.lastHeight, this.camera.fov);
     this._endTarget.copy(object.position);
     this._endCamera.copy(object.position).addScaledVector(direction, distance);
+    // Align the camera to the actual tile plane, so even Sphere/Helix cards
+    // become straight and readable instead of remaining at an oblique angle.
+    this._endCameraQuaternion.copy(object.quaternion);
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.transition = {
       kind: 'focus', startedAt: null,
@@ -282,7 +302,7 @@ export class PeopleVisualizer {
 
   clearFocus(resetCamera = true) {
     const hadFocus = this.focusedIndex !== null;
-    if (hadFocus) this.objects[this.focusedIndex]?.element.classList.remove('is-focus-target');
+    if (hadFocus) hideFocusedCard(this.objects[this.focusedIndex]?.element);
     this.focusedIndex = null;
     this.container.classList.remove('is-focused');
     if (hadFocus) this.onClearSelection();
@@ -318,6 +338,8 @@ export class PeopleVisualizer {
       if (!this.transition) {
         this.camera.position.copy(this._endCamera);
         this.controls.target.copy(this._endTarget);
+        this.camera.up.set(0, 1, 0);
+        this.camera.quaternion.copy(tile.quaternion);
       }
     } else {
       const targets = this.targets[this.layout];
@@ -352,8 +374,9 @@ export class PeopleVisualizer {
       }
       this.camera.position.lerpVectors(this._startCamera, this._endCamera, eased);
       this.controls.target.lerpVectors(this._startTarget, this._endTarget, eased);
-      this.camera.up.set(0, 1, 0);
-      this.camera.lookAt(this.controls.target);
+      this.camera.quaternion.slerpQuaternions(
+        this._startCameraQuaternion, this._endCameraQuaternion, eased,
+      );
       this.needsRender = true;
       if (eased >= 1) {
         if (t.kind === 'layout') {
@@ -371,8 +394,9 @@ export class PeopleVisualizer {
         } else {
           this.camera.position.copy(this._endCamera);
           this.controls.target.copy(this._endTarget);
+          const tile = this.objects[this.focusedIndex];
           this.camera.up.set(0, 1, 0);
-          this.camera.lookAt(this.controls.target);
+          this.camera.quaternion.copy(tile.quaternion);
           const damping = this.controls.enableDamping;
           this.controls.enableDamping = false;
           this.controls.update();
@@ -382,7 +406,9 @@ export class PeopleVisualizer {
       }
     }
     this.idleFrames++;
-    this.controls.update();
+    // OrbitControls computes its own lookAt; do not let it overwrite the
+    // quaternion-slerped flight. Synchronize it only after the flight finishes.
+    if (!this.transition) this.controls.update();
     if (this.needsRender) {
       this.renderer.render(this.scene, this.camera);
       this.needsRender = false;
