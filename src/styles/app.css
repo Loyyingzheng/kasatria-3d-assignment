@@ -206,3 +206,31 @@ h1 { margin: 4px 0 0; font: 600 19px 'Space Grotesk',sans-serif; letter-spacing:
 
 /* One card is enlarged by camera movement. No CSS scale() on 200 elements. */
 #three-container.is-focused .person-card.is-focus-target { visibility: visible; pointer-events: auto; }
+
+
+/* Mobile CSS3D performance fallback: reduce compositing pressure on 200 transformed tiles.
+ * The normal desktop shadows are removed during transitions already, but restored
+ * after the animation. On mobile, repainting 200 separately transformed shadows
+ * can overwhelm the compositor and result in flickering/missing cards.
+ * This retains layout, data, card sizes, colours, images, and click targets.
+ */
+@media (max-width: 768px), (pointer: coarse) {
+  #three-container .person-card,
+  #three-container .person-card:hover {
+    box-shadow: none !important;
+    transition: none !important;
+    background: var(--tile-bg) !important;
+  }
+
+  .ambient {
+    filter: none;
+    opacity: 0.09;
+  }
+
+  .app-header,
+  .toolbar,
+  .data-bar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
