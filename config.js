@@ -4,7 +4,7 @@
  * private API key, access token, service-account JSON, or password in this file.
  */
 window.KASATRIA_CONFIG = Object.freeze({
-  googleClientId: 'YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com',
-  spreadsheetId: 'YOUR_SPREADSHEET_ID',
+  googleClientId: '921644119596-madufoffap207nm2ro40n5n06na59ml6.apps.googleusercontent.com',
+  spreadsheetId: '1vEDmPKVhZqR5YHGniUkj33XZzhq_g86UXVrjNOQ4HzQ',
   sheetRange: 'Sheet1!A:F',
 });
