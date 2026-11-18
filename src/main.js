@@ -1,10 +1,8 @@
-import './styles/tokens.css';
-import './styles/app.css';
 import { APP_CONFIG } from './config/appConfig.js';
 import { parseSheetValues } from './services/peopleMapper.js';
 import {
   createGoogleTokenClient, fetchGoogleProfile, fetchGoogleSheet,
-  googleConfig, isGoogleConfigured, revokeGoogleToken, waitForGoogleLibrary,
+  isGoogleConfigured, revokeGoogleToken, waitForGoogleLibrary,
 } from './services/googleApi.js';
 import { createFictionalPreview } from './data/previewPeople.js';
 import { PeopleVisualizer } from './scene/PeopleVisualizer.js';
@@ -67,7 +65,7 @@ async function onGoogleToken(accessToken, expiresInSeconds) {
 
 async function initializeGoogle() {
   if (!isGoogleConfigured()) {
-    $('login-hint').textContent = 'Google login needs configuration in .env. You can try fictional preview mode.';
+    $('login-hint').textContent = 'Configure Google OAuth and Sheet ID in config.js. You can try fictional preview mode.';
     return;
   }
   try {
@@ -134,8 +132,3 @@ window.addEventListener('pagehide', () => visualizer.destroy(), { once: true });
 showSession({ connected: false });
 setLayoutControls('table');
 initializeGoogle();
-if (import.meta.env.DEV) {
-  console.info('Kasatria project configuration:', {
-    configured: isGoogleConfigured(), sheetRange: googleConfig().range,
-  });
-}

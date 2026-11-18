@@ -6,6 +6,8 @@
     <meta name="theme-color" content="#060d16" />
     <meta name="description" content="3D people visualisation with Google Sheets, Google OAuth and four interactive Three.js layouts" />
     <title>Kasatria | 3D People Explorer</title>
+    <link rel="stylesheet" href="./src/styles/tokens.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
   </head>
   <body>
     <div id="app">
@@ -67,7 +69,18 @@
         <span class="helper-text">DRAG TO ORBIT · SCROLL TO ZOOM</span>
       </footer>
     </div>
+    <!-- Browser-native ES Modules: same pinned Three.js version for core and addons. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.181.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.181.0/examples/jsm/"
+        }
+      }
+    </script>
+    <!-- Public client-side configuration; never put secrets here. -->
+    <script src="./config.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>

@@ -3,9 +3,9 @@ const SCOPES = `openid email profile ${SHEETS_SCOPE}`;
 
 export function googleConfig() {
   return {
-    clientId: (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim(),
-    spreadsheetId: (import.meta.env.VITE_SPREADSHEET_ID ?? '').trim(),
-    range: (import.meta.env.VITE_SHEET_RANGE ?? 'Sheet1!A:F').trim(),
+    clientId: String(window.KASATRIA_CONFIG?.googleClientId ?? '').trim(),
+    spreadsheetId: String(window.KASATRIA_CONFIG?.spreadsheetId ?? '').trim(),
+    range: String(window.KASATRIA_CONFIG?.sheetRange ?? 'Sheet1!A:F').trim(),
   };
 }
 
@@ -32,7 +32,7 @@ export function waitForGoogleLibrary(timeoutMs = 12000) {
 }
 
 export function createGoogleTokenClient(onSuccess, onError) {
-  if (!isGoogleConfigured()) throw new Error('Please configure .env before Google sign-in.');
+  if (!isGoogleConfigured()) throw new Error('Please configure config.js before Google sign-in.');
   return window.google.accounts.oauth2.initTokenClient({
     client_id: googleConfig().clientId,
     scope: SCOPES,
@@ -55,7 +55,7 @@ async function googleFetch(url, accessToken) {
     try { description = (await response.json()).error?.message || ''; } catch { /* ignore */ }
     if (response.status === 401) throw new Error('Google session expired. Please sign in again.');
     if (response.status === 403) throw new Error(`Google Sheets access denied. Check API setup and spreadsheet sharing. ${description}`);
-    if (response.status === 404) throw new Error('Spreadsheet or tab not found. Check VITE_SPREADSHEET_ID / VITE_SHEET_RANGE.');
+    if (response.status === 404) throw new Error('Spreadsheet or tab not found. Check spreadsheetId / sheetRange in config.js.');
     throw new Error(`Google API ${response.status}: ${description || 'Request failed'}`);
   }
   return response.json();
