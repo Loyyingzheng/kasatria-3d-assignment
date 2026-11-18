@@ -39,10 +39,32 @@ export function createGoogleTokenClient(onSuccess, onError) {
     prompt: 'select_account',
     callback: (result) => {
       if (result.error || !result.access_token) {
-        onError(new Error(result.error_description || result.error || 'Google authentication failed.'));
+        onError(new Error(
+          result.error_description ||
+          result.error ||
+          'Google authentication failed.'
+        ));
         return;
       }
-      onSuccess(result.access_token, Number(result.expires_in || 3600));
+
+      const hasSheetsAccess =
+        window.google.accounts.oauth2.hasGrantedAllScopes(
+          result,
+          SHEETS_SCOPE
+        );
+
+      if (!hasSheetsAccess) {
+        onError(new Error(
+          'Google Sheets read permission was not granted. ' +
+          'Please sign in again and approve Sheets access.'
+        ));
+        return;
+      }
+
+      onSuccess(
+        result.access_token,
+        Number(result.expires_in || 3600)
+      );
     },
     error_callback: (result) => onError(new Error(result.type || 'Google popup was closed or blocked.')),
   });
@@ -54,7 +76,12 @@ async function googleFetch(url, accessToken) {
     let description = '';
     try { description = (await response.json()).error?.message || ''; } catch { /* ignore */ }
     if (response.status === 401) throw new Error('Google session expired. Please sign in again.');
-    if (response.status === 403) throw new Error(`Google Sheets access denied. Check API setup and spreadsheet sharing. ${description}`);
+    if (response.status === 403) {
+      if (/insufficient authentication scopes/i.test(description)) {
+        throw new Error('Google token lacks the Sheets read-only scope. Sign out, revoke this app in your Google Account permissions if necessary, then sign in and approve Sheets access.');
+      }
+      throw new Error(`Google Sheets access denied. Confirm that the API is enabled and this Google account can read the spreadsheet. ${description}`);
+    }
     if (response.status === 404) throw new Error('Spreadsheet or tab not found. Check spreadsheetId / sheetRange in config.js.');
     throw new Error(`Google API ${response.status}: ${description || 'Request failed'}`);
   }
@@ -74,6 +101,6 @@ export async function fetchGoogleSheet(accessToken) {
 
 export function revokeGoogleToken(accessToken) {
   if (accessToken && window.google?.accounts?.oauth2) {
-    window.google.accounts.oauth2.revoke(accessToken, () => {});
+    window.google.accounts.oauth2.revoke(accessToken, () => { });
   }
 }

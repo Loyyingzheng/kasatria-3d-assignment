@@ -59,3 +59,59 @@ git add .
 git commit -m "refactor: migrate to native modules and GitHub Pages"
 git push
 ```
+
+
+## Performance improvements (November 2026)
+
+- `PeopleVisualizer` uses **one coordinated transition** rather than two Tween objects per card.
+- Transitions interpolate position and quaternion orientation; switching layouts partway through an animation does not jump.
+- The CSS3D renderer redraws **only when animation, orbit controls, loading, or resizing actually changes the scene**; requestAnimationFrame stops once TrackballControls damping settles.
+- Card drop shadows are removed **only while 3D movement is in progress**, and restored at rest. The original design and all 200 cards are retained.
+- `showRecords()` no longer starts the initial Table animation twice.
+- Transition duration is shorter and no longer randomized per card, improving responsiveness.
+
+**How to verify on your computer:** Open Chrome DevTools → Performance, record 4–6 seconds while switching Table ↔ Sphere, compare before and after. Look for dropped frames and time spent in Rendering/Painting. Test both 200-card Preview and live Google Sheet. The 19-test suite verifies layout/data logic, DOM node reuse, Sheets request construction and animation easing, but no real-browser FPS results were obtained in this environment. If FPS is still low, consider simplifying card visuals further or using a WebGL-based renderer (which is a larger redesign).
+
+## P2 + P3 one-shot update — 18 November 2026
+
+### P2 — verified with automated tests
+
+- Table: 20 columns × 10 rows, 200 distinct card targets.
+- Sphere: all targets placed at the configured radius with outward-facing cards.
+- Grid: 5 columns × 4 rows × 10 layers = 200 distinct targets.
+- **Double Helix**: 100 paired levels, opposite strands separated by 180°, **2.65 turns** per strand, 44 units height per level. The previous configuration used over five turns and only 24 units between levels, visually resembling a cylinder.
+- Two subtle, projected SVG guide paths plus sparse cross-rungs improve the visibility of the double-helix structure without adding CSS3DObjects or overriding Net Worth colors.
+- Net Worth threshold tests: `< $100K` is red, `$100K–< $200K` is orange, and `≥ $200K` is green (including exact boundaries).
+- Realistic A:F Google Sheets values and API request construction are checked using mocks. Actual Google OAuth/Sheet permission and live browser visuals **require user-side testing**.
+
+### P3 — changes designed to reduce browser work
+
+- Precompute positions and facing quaternions for each layout and cache them by record count.
+- Preallocate position and quaternion interpolation buffers; one shared animation timeline instead of 400 tweens for 200 cards.
+- **Stop requestAnimationFrame while idle**, resume for animation, interaction, damping and resize.
+- Reuse existing `CSS3DObject` and DOM card nodes when the spreadsheet is refreshed with the same number of records.
+- Do not replace an image element if its URL has not changed; keep async, lazy, low-priority image loading.
+- Remove expensive card shadows only during transitions, restore at rest.
+- Add appropriate camera distances by layout so the expanded Double Helix remains visible.
+- Respect `prefers-reduced-motion` in layout transitions.
+- Avoid restarting an in-progress layout animation when the 200-row sheet refreshes.
+
+### Preview is opt-in on public Pages
+
+The fictional-data button now appears automatically only on localhost / 127.0.0.1, or when the URL explicitly includes `?preview=1`. The real Google Sheets flow is unchanged. The public site **does not silently substitute** fictional data when Google Sheets fails.
+
+### Test and deploy
+
+```powershell
+npm test
+py -m http.server 5500
+# open http://localhost:5500/
+# Use the Google login or, for local visual testing, the fictional Preview button.
+git add .
+git commit -m "feat: validate 3D layouts and optimize CSS3D rendering"
+git push
+```
+
+Retain your existing local `.git` directory; the deliverable ZIP does not include `.git`, `.env`, or a build output. GitHub Pages stays **Deploy from a branch → main → /(root)**, with no Vite step.
+
+**Manual acceptance:** on a desktop Chrome browser test each layout, orbit/zoom, Google login, 200 real Sheet records, visible red/orange/green boundaries, and live data refresh. Record a Chrome DevTools Performance trace before claiming a measurable FPS improvement; the automated tests cannot prove real-device FPS. See `VALIDATION.md`.

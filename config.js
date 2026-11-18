@@ -6,5 +6,5 @@
 window.KASATRIA_CONFIG = Object.freeze({
   googleClientId: '921644119596-madufoffap207nm2ro40n5n06na59ml6.apps.googleusercontent.com',
   spreadsheetId: '1vEDmPKVhZqR5YHGniUkj33XZzhq_g86UXVrjNOQ4HzQ',
-  sheetRange: 'Sheet1!A:F',
+  sheetRange: 'A:F',
 });

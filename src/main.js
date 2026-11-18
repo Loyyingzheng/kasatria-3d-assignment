@@ -9,6 +9,10 @@ import { PeopleVisualizer } from './scene/PeopleVisualizer.js';
 import { createSessionStore } from './state/sessionStore.js';
 import { element as $, showNotice, showSession, setBusy, setLayoutControls, initWealthLegend } from './ui/appUi.js';
 
+const previewEnabled = ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+  new URLSearchParams(window.location.search).get('preview') === '1';
+$('demo-btn').hidden = !previewEnabled;
+
 const session = createSessionStore();
 const visualizer = new PeopleVisualizer($('three-container'));
 initWealthLegend();
@@ -37,7 +41,8 @@ function showRecords(data, { preview = false, profile = null } = {}) {
   visualizer.setData(records);
   $('record-count').textContent = String(records.length);
   showSession({ connected: true, preview, profile });
-  activateLayout('table');
+  // On Sheet refresh with the same count, preserve the current user-selected layout.
+  setLayoutControls(visualizer.layout);
 }
 
 async function loadSheetData(profile) {
@@ -65,7 +70,9 @@ async function onGoogleToken(accessToken, expiresInSeconds) {
 
 async function initializeGoogle() {
   if (!isGoogleConfigured()) {
-    $('login-hint').textContent = 'Configure Google OAuth and Sheet ID in config.js. You can try fictional preview mode.';
+    $('login-hint').textContent = previewEnabled
+      ? 'Configure Google OAuth and Sheet ID in config.js. Fictional preview is available for testing.'
+      : 'Google OAuth or spreadsheet configuration is missing in config.js.';
     return;
   }
   try {
@@ -91,7 +98,7 @@ $('google-login-btn').addEventListener('click', () => {
 });
 
 $('demo-btn').addEventListener('click', () => {
-  if (session.get().busy) return;
+  if (!previewEnabled || session.get().busy) return;
   if (session.get().accessToken) revokeGoogleToken(session.get().accessToken);
   session.set({ accessToken: '', expiresAt: 0 });
   showRecords(createFictionalPreview(APP_CONFIG.maxRecords), { preview: true });
