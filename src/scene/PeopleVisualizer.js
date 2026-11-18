@@ -5,6 +5,7 @@ import { buildLayoutTargets } from './layouts.js';
 import { smoothstep } from './animationMath.js';
 import { getLayoutCameraFrame, getCardFocusDistance } from './cameraFraming.js';
 import { enforceCanonicalCameraView } from './cameraReset.js';
+import { captureCameraView, restoreCameraView } from './cameraHistory.js';
 import { createPersonCard, updatePersonCard, showFocusedCard, hideFocusedCard } from '../ui/personCard.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 import { isCardTap } from './pointerActivation.js';
@@ -47,6 +48,8 @@ export class PeopleVisualizer {
     this.targets = {};
     this.layout = 'table';
     this.focusedIndex = null;
+    // Snapshot of the user's orbit/pan/zoom before opening the first profile.
+    this.preFocusView = null;
     this.transition = null;
     this.positionBuffer = [];
     this.rotationBuffer = [];
@@ -78,6 +81,7 @@ export class PeopleVisualizer {
           controlsEnabled: this.controls.enabled,
           camera: this.camera.position.toArray(),
           target: this.controls.target.toArray(),
+          hasSavedView: Boolean(this.preFocusView),
         }),
         focus: (index = 0) => this.activateCard(index),
         reset: () => this.resetView(),
@@ -353,6 +357,11 @@ export class PeopleVisualizer {
     const object = this.objects[index];
     if (this.focusedIndex === index) return;
     this.debug('focus started', { index, layout: this.layout });
+    // When switching directly between profiles, retain the original overview
+    // snapshot instead of saving the already-zoomed camera.
+    if (this.focusedIndex === null) {
+      this.preFocusView = captureCameraView(this.camera, this.controls);
+    }
     this.prepareCameraFlight();
     if (this.focusedIndex !== null) hideFocusedCard(this.objects[this.focusedIndex]?.element);
     this.focusedIndex = index;
@@ -374,13 +383,30 @@ export class PeopleVisualizer {
     this.requestRender();
   }
 
-  clearFocus(resetCamera = true) {
+  clearFocus(restorePreviousView = true) {
     const hadFocus = this.focusedIndex !== null;
     if (hadFocus) hideFocusedCard(this.objects[this.focusedIndex]?.element);
     this.focusedIndex = null;
     this.container.classList.remove('is-focused');
     if (hadFocus) this.onClearSelection();
-    if (resetCamera && this.objects.length) this.changeLayout(this.layout, APP_CONFIG.focusAnimationMs);
+
+    // Closing a profile returns to the user's ORIGINAL orbit/zoom/pan, not the
+    // canonical layout. Layout buttons and Reset View use changeLayout().
+    const savedView = this.preFocusView;
+    this.preFocusView = null;
+    if (!hadFocus || !restorePreviousView || !savedView || !this.objects.length) return;
+    this.debug('restoring previous view', { layout: this.layout });
+    this.prepareCameraFlight();
+    this._endCamera.copy(savedView.position);
+    this._endTarget.copy(savedView.target);
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    this.transition = {
+      kind: 'restore', startedAt: null,
+      duration: reducedMotion ? 1 : APP_CONFIG.focusAnimationMs,
+      view: savedView,
+    };
+    this.container.classList.add('is-animating');
+    this.requestRender();
   }
 
   resetView() {
@@ -462,6 +488,11 @@ export class PeopleVisualizer {
           enforceCanonicalCameraView(
             this.camera, this.controls, this.layout, this._endCamera, this._endTarget,
           );
+        } else if (t.kind === 'restore') {
+          // Finish on the exact stored pose. OrbitControls' internal state is
+          // synchronized without damping, so the view will not drift afterward.
+          restoreCameraView(this.camera, this.controls, t.view);
+          this.debug('previous view restored');
         } else {
           this.debug('focus animation completed', { index: this.focusedIndex });
           this.camera.position.copy(this._endCamera);
