@@ -48,9 +48,8 @@ test('camera distance fits the FULL readable profile on mobile and desktop', () 
 test('selected card stays at its actual 3D position while the camera moves in front', () => {
   assert.match(visualizer, /this\._endTarget\.copy\(object\.position\)/);
   assert.match(visualizer, /this\._endCamera\.copy\(object\.position\)\.addScaledVector\(direction, distance\)/);
-  assert.match(visualizer, /this\._endCameraQuaternion\.copy\(object\.quaternion\)/);
-  assert.match(visualizer, /camera\.quaternion\.slerpQuaternions/);
-  assert.match(visualizer, /_cameraLookAtMatrix\.lookAt\(/);
+  assert.match(visualizer, /showFocusedCard\(object\.element, this\.people\[index\]\)/);
+  assert.match(visualizer, /this\.camera\.lookAt\(this\.controls\.target\)/);
   assert.match(visualizer, /event\.target\.closest\?\.\('\.focus-close'\)/);
   assert.doesNotMatch(visualizer, /this\.objects\[index\]\.position\.set\(0/);
 });

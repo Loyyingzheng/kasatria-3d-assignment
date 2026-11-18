@@ -5,7 +5,7 @@ import { buildLayoutTargets } from './layouts.js';
 import { smoothstep } from './animationMath.js';
 import { getLayoutCameraFrame, getCardFocusDistance } from './cameraFraming.js';
 import { enforceCanonicalCameraView } from './cameraReset.js';
-import { createPersonCard, updatePersonCard } from '../ui/personCard.js';
+import { createPersonCard, updatePersonCard, showFocusedCard, hideFocusedCard } from '../ui/personCard.js';
 import { APP_CONFIG } from '../config/appConfig.js';
 import { isCardTap } from './pointerActivation.js';
 
@@ -66,6 +66,24 @@ export class PeopleVisualizer {
     this._pointerStart = null;
     this._pointerMoved = false;
     this._pendingFocusIndex = null;
+    // Opt-in browser diagnostics: add ?debug=1 to the site URL, then open Console.
+    this._debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
+    if (this._debugEnabled) {
+      window.__kasatriaDebug = Object.freeze({
+        status: () => ({
+          cards: this.objects.length,
+          layout: this.layout,
+          focusedIndex: this.focusedIndex,
+          transition: this.transition?.kind ?? null,
+          controlsEnabled: this.controls.enabled,
+          camera: this.camera.position.toArray(),
+          target: this.controls.target.toArray(),
+        }),
+        focus: (index = 0) => this.activateCard(index),
+        reset: () => this.resetView(),
+      });
+      console.info('[Kasatria] Debug enabled. Try __kasatriaDebug.status() or __kasatriaDebug.focus(0).');
+    }
 
     this._animate = this.animate.bind(this);
     this._resize = this.resize.bind(this);
@@ -73,9 +91,17 @@ export class PeopleVisualizer {
     this._onControlStart = () => { this.controlsActive = true; this.requestRender(); };
     this._onControlEnd = () => { this.controlsActive = false; this.requestRender(); };
     this._onVisibility = () => { if (!document.hidden) this.requestRender(); };
+    // Use document capture for diagnostic visibility even when OrbitControls
+    // captures pointerup or the CSS3D browser retargets the synthesized click.
     this._onPointerDown = (event) => {
-      const card = event.target.closest?.('.person-card');
-      if (event.button !== 0 || !card) { this._pointerStart = null; return; }
+      const card = this.findCard(event);
+      if (this._debugEnabled && (card || this.container.contains(event.target))) {
+        this.debug('pointerdown', { target: this.describeTarget(event.target), cardIndex: card?.dataset.cardIndex ?? null, button: event.button });
+      }
+      if (event.button !== 0 || !card || event.target.closest?.('.focus-close')) {
+        this._pointerStart = null;
+        return;
+      }
       this._pointerStart = {
         pointerId: event.pointerId,
         x: event.clientX, y: event.clientY,
@@ -90,11 +116,12 @@ export class PeopleVisualizer {
         event.clientY - press.y,
       ) > 7) this._pointerMoved = true;
     };
-    // OrbitControls captures the pointer on its canvas/container. Some browsers
-    // retarget the subsequent "click" away from the CSS3D child tile. Preserve
-    // the card picked on pointerdown and activate it from the actual pointerup.
     this._onPointerUp = (event) => {
       const press = this._pointerStart;
+      if (this._debugEnabled && press) this.debug('pointerup', {
+        sourceIndex: press.index, moved: this._pointerMoved,
+        target: this.describeTarget(event.target), button: event.button,
+      });
       if (!press || event.pointerId !== press.pointerId) return;
       this._pointerStart = null;
       if (!isCardTap(press, event, this._pointerMoved)) {
@@ -107,16 +134,28 @@ export class PeopleVisualizer {
       if (this._pointerStart?.pointerId !== event.pointerId) return;
       this._pointerStart = null;
       this._pointerMoved = true;
+      this.debug('pointercancel');
     };
-    // Keep native click as an accessibility / alternate-input fallback.
+    // Delegated click fallback handles keyboard-initiated clicks and synthetic
+    // clicks from accessibility tools. Never interpret the close button as a card.
     this._onClick = (event) => {
-      const card = event.target.closest?.('.person-card');
+      if (event.target.closest?.('.focus-close')) {
+        this.debug('close clicked');
+        this._pointerStart = null;
+        this.clearFocus();
+        return;
+      }
+      const card = this.findCard(event);
+      if (this._debugEnabled && (card || this.container.contains(event.target))) {
+        this.debug('click', { target: this.describeTarget(event.target), cardIndex: card?.dataset.cardIndex ?? null });
+      }
       if (!card || this._pointerMoved) return;
       this.activateCard(Number(card.dataset.cardIndex));
     };
     this._onKeyDown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      const card = event.target.closest?.('.person-card');
+      if (event.target.closest?.('.focus-close')) return;
+      const card = this.findCard(event);
       if (!card) return;
       event.preventDefault();
       if (event.repeat) return;
@@ -132,13 +171,29 @@ export class PeopleVisualizer {
     window.addEventListener('pointerup', this._onPointerUp, { passive: true });
     window.addEventListener('pointercancel', this._onPointerCancel, { passive: true });
     const element = this.renderer.domElement;
-    element.addEventListener('pointerdown', this._onPointerDown, { capture: true, passive: true });
-    element.addEventListener('click', this._onClick);
+    document.addEventListener('pointerdown', this._onPointerDown, { capture: true, passive: true });
+    document.addEventListener('click', this._onClick, true);
     element.addEventListener('keydown', this._onKeyDown);
     this.resizeObserver = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(this._resize) : null;
     this.resizeObserver?.observe(this.container);
     this.resize();
+  }
+
+
+  debug(label, detail = '') {
+    if (this._debugEnabled) console.debug(`[Kasatria] ${label}`, detail);
+  }
+
+  describeTarget(target) {
+    return target?.tagName ? `${target.tagName.toLowerCase()}${target.className && typeof target.className === 'string' ? '.' + target.className.trim().replace(/\s+/g, '.') : ''}` : String(target);
+  }
+
+  findCard(event) {
+    const path = event.composedPath?.() ?? [];
+    const card = path.find(node => node?.classList?.contains?.('person-card'))
+      ?? event.target?.closest?.('.person-card');
+    return card && this.renderer.domElement.contains(card) ? card : null;
   }
 
   configureControlMode(layout) {
@@ -282,6 +337,7 @@ export class PeopleVisualizer {
   activateCard(index) {
     if (!Number.isInteger(index) || index < 0 || index >= this.objects.length) return;
     if (this.transition?.kind === 'layout') {
+      this.debug('focus queued until layout animation completes', { index });
       this._pendingFocusIndex = index;
       return;
     }
@@ -296,10 +352,11 @@ export class PeopleVisualizer {
     if (!Number.isInteger(index) || index < 0 || index >= this.objects.length) return;
     const object = this.objects[index];
     if (this.focusedIndex === index) return;
+    this.debug('focus started', { index, layout: this.layout });
     this.prepareCameraFlight();
-    if (this.focusedIndex !== null) this.objects[this.focusedIndex]?.element.classList.remove('is-focus-target');
+    if (this.focusedIndex !== null) hideFocusedCard(this.objects[this.focusedIndex]?.element);
     this.focusedIndex = index;
-    object.element.classList.add('is-focus-target');
+    showFocusedCard(object.element, this.people[index]);
     this.container.classList.add('is-focused');
 
     // Fly to the FRONT of the selected card. Backside is intentionally mirrored
@@ -319,7 +376,7 @@ export class PeopleVisualizer {
 
   clearFocus(resetCamera = true) {
     const hadFocus = this.focusedIndex !== null;
-    if (hadFocus) this.objects[this.focusedIndex]?.element.classList.remove('is-focus-target');
+    if (hadFocus) hideFocusedCard(this.objects[this.focusedIndex]?.element);
     this.focusedIndex = null;
     this.container.classList.remove('is-focused');
     if (hadFocus) this.onClearSelection();
@@ -406,6 +463,7 @@ export class PeopleVisualizer {
             this.camera, this.controls, this.layout, this._endCamera, this._endTarget,
           );
         } else {
+          this.debug('focus animation completed', { index: this.focusedIndex });
           this.camera.position.copy(this._endCamera);
           this.controls.target.copy(this._endTarget);
           this.camera.up.set(0, 1, 0);
@@ -451,8 +509,8 @@ export class PeopleVisualizer {
     window.removeEventListener('pointercancel', this._onPointerCancel);
     document.removeEventListener('visibilitychange', this._onVisibility);
     const element = this.renderer.domElement;
-    element.removeEventListener('pointerdown', this._onPointerDown, true);
-    element.removeEventListener('click', this._onClick);
+    document.removeEventListener('pointerdown', this._onPointerDown, true);
+    document.removeEventListener('click', this._onClick, true);
     element.removeEventListener('keydown', this._onKeyDown);
     this.resizeObserver?.disconnect();
     this.controls.removeEventListener('change', this._onControlChange);
@@ -466,5 +524,6 @@ export class PeopleVisualizer {
     this.objects = [];
     this.renderer.domElement.remove();
     this.targetCache.clear();
+    if (this._debugEnabled) delete window.__kasatriaDebug;
   }
 }
