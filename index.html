@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#060d16" />
+    <meta name="description" content="3D people visualisation with Google Sheets, Google OAuth and four interactive Three.js layouts" />
+    <title>Kasatria | 3D People Explorer</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-icon">K<span class="brand-dot">.</span></span>
+          <div>
+            <span class="eyebrow">KASATRIA · TECHNICAL ASSIGNMENT</span>
+            <h1>People in Perspective</h1>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span id="source-pill" class="source-pill">Not connected</span>
+          <button id="reload-btn" class="header-button" type="button" hidden>Refresh</button>
+          <button id="signout-btn" class="header-button" type="button" hidden>Sign out</button>
+        </div>
+      </header>
+
+      <main id="stage">
+        <div class="ambient ambient-one"></div>
+        <div class="ambient ambient-two"></div>
+        <div id="three-container" aria-label="Interactive Three.js 3D visualization"></div>
+        <section id="auth-overlay" class="auth-overlay">
+          <div class="auth-card">
+            <span class="eyebrow auth-eyebrow">THE 3D DATA EXPERIENCE</span>
+            <h2>Explore people<br/><em>from every angle.</em></h2>
+            <p>Sign in securely to view the live dataset from Google Sheets, then switch between four animated 3D layouts.</p>
+            <button id="google-login-btn" class="google-btn" type="button" disabled>
+              <span class="google-mark" aria-hidden="true">G</span>
+              <span>Sign in with Google</span>
+            </button>
+            <button id="demo-btn" class="demo-btn" type="button">Preview with fictional sample data</button>
+            <p id="login-hint" class="hint">Loading Google authentication…</p>
+          </div>
+        </section>
+        <div id="top-data-bar" class="data-bar" hidden>
+          <div class="data-bar-stat"><strong id="record-count">0</strong><span>PEOPLE</span></div>
+          <div class="data-bar-line"></div>
+          <div class="data-bar-stat"><strong id="layout-caption">TABLE</strong><span>CURRENT VIEW</span></div>
+          <div class="data-bar-line"></div>
+          <div class="data-bar-stat"><strong>3D</strong><span>INTERACTIVE</span></div>
+        </div>
+        <div id="notice" class="notice" hidden role="status"></div>
+      </main>
+
+      <footer id="toolbar" class="toolbar" hidden>
+        <div class="legend" aria-label="Net worth color legend">
+          <span class="legend-title">NET WORTH</span>
+          <span><i class="dot dot-low"></i> <span id="legend-low">&lt; $100K</span></span>
+          <span><i class="dot dot-mid"></i> <span id="legend-mid">$100K–&lt; $200K</span></span>
+          <span><i class="dot dot-high"></i> <span id="legend-high">≥ $200K</span></span>
+        </div>
+        <div class="layout-controls" aria-label="3D layout controls">
+          <button class="layout-btn active" data-layout="table" type="button">Table <small>20×10</small></button>
+          <button class="layout-btn" data-layout="sphere" type="button">Sphere</button>
+          <button class="layout-btn" data-layout="helix" type="button">Double Helix</button>
+          <button class="layout-btn" data-layout="grid" type="button">Grid <small>5×4×10</small></button>
+        </div>
+        <span class="helper-text">DRAG TO ORBIT · SCROLL TO ZOOM</span>
+      </footer>
+    </div>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
