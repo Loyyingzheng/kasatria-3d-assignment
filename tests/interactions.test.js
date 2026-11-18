@@ -16,13 +16,12 @@ test('mouse-centered zoom uses OrbitControls across all four layouts', () => {
 });
 
 test('card clicks and keyboard activation have a focus & reset path', () => {
-  assert.match(visualizer, /this\.focusPerson\(Number\(card\.dataset\.cardIndex\)\)/);
-  assert.match(visualizer, /if \(!card \|\| this\._pointerMoved \|\| this\.transition\) return/);
+  assert.match(visualizer, /this\.activateCard\(Number\(card\.dataset\.cardIndex\)\)/);
+  assert.match(visualizer, /this\.activateCard\(press\.index\)/);
+  assert.match(visualizer, /this\._pendingFocusIndex = index/);
   assert.match(visualizer, /this\.objects\[this\.focusedIndex\]/);
   assert.match(visualizer, /camera\.up\.set\(0, 1, 0\)/);
   assert.match(entry, /reset-view-btn/);
   assert.match(entry, /visualizer\.clearFocus\(\)/);
-  assert.doesNotMatch(html, /id="person-detail"/);
-  assert.match(visualizer, /showFocusedCard\(object\.element, this\.people\[index\]\)/);
-  assert.match(visualizer, /hideFocusedCard\(this\.objects\[this\.focusedIndex\]\?\.element\)/);
+  assert.match(html, /id="person-detail"/);
 });

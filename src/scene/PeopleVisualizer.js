@@ -5,8 +5,9 @@ import { buildLayoutTargets } from './layouts.js';
 import { smoothstep } from './animationMath.js';
 import { getLayoutCameraFrame, getCardFocusDistance } from './cameraFraming.js';
 import { enforceCanonicalCameraView } from './cameraReset.js';
-import { createPersonCard, updatePersonCard, showFocusedCard, hideFocusedCard } from '../ui/personCard.js';
+import { createPersonCard, updatePersonCard } from '../ui/personCard.js';
 import { APP_CONFIG } from '../config/appConfig.js';
+import { isCardTap } from './pointerActivation.js';
 
 /**
  * Cached CSS3D card transforms + event-driven rendering.
@@ -50,10 +51,6 @@ export class PeopleVisualizer {
     this.positionBuffer = [];
     this.rotationBuffer = [];
     this._startCamera = new THREE.Vector3();
-    this._startCameraQuaternion = new THREE.Quaternion();
-    this._endCameraQuaternion = new THREE.Quaternion();
-    this._worldUp = new THREE.Vector3(0, 1, 0);
-    this._cameraLookAtMatrix = new THREE.Matrix4();
     this._endCamera = new THREE.Vector3();
     this._startTarget = new THREE.Vector3();
     this._endTarget = new THREE.Vector3();
@@ -68,6 +65,7 @@ export class PeopleVisualizer {
     this.animationId = null;
     this._pointerStart = null;
     this._pointerMoved = false;
+    this._pendingFocusIndex = null;
 
     this._animate = this.animate.bind(this);
     this._resize = this.resize.bind(this);
@@ -78,33 +76,51 @@ export class PeopleVisualizer {
     this._onPointerDown = (event) => {
       const card = event.target.closest?.('.person-card');
       if (event.button !== 0 || !card) { this._pointerStart = null; return; }
-      this._pointerStart = { x: event.clientX, y: event.clientY };
+      this._pointerStart = {
+        pointerId: event.pointerId,
+        x: event.clientX, y: event.clientY,
+        index: Number(card.dataset.cardIndex),
+      };
       this._pointerMoved = false;
     };
     this._onPointerMove = (event) => {
-      if (this._pointerStart && Math.hypot(
-        event.clientX - this._pointerStart.x,
-        event.clientY - this._pointerStart.y,
+      const press = this._pointerStart;
+      if (press && event.pointerId === press.pointerId && Math.hypot(
+        event.clientX - press.x,
+        event.clientY - press.y,
       ) > 7) this._pointerMoved = true;
     };
-    this._onPointerUp = () => { this._pointerStart = null; };
-    this._onClick = (event) => {
-      const card = event.target.closest?.('.person-card');
-      if (event.target.closest?.('.focus-close')) {
-        event.preventDefault();
-        this.clearFocus();
+    // OrbitControls captures the pointer on its canvas/container. Some browsers
+    // retarget the subsequent "click" away from the CSS3D child tile. Preserve
+    // the card picked on pointerdown and activate it from the actual pointerup.
+    this._onPointerUp = (event) => {
+      const press = this._pointerStart;
+      if (!press || event.pointerId !== press.pointerId) return;
+      this._pointerStart = null;
+      if (!isCardTap(press, event, this._pointerMoved)) {
+        this._pointerMoved = true;
         return;
       }
-      if (!card || this._pointerMoved || this.transition) return;
-      this.focusPerson(Number(card.dataset.cardIndex));
+      this.activateCard(press.index);
+    };
+    this._onPointerCancel = (event) => {
+      if (this._pointerStart?.pointerId !== event.pointerId) return;
+      this._pointerStart = null;
+      this._pointerMoved = true;
+    };
+    // Keep native click as an accessibility / alternate-input fallback.
+    this._onClick = (event) => {
+      const card = event.target.closest?.('.person-card');
+      if (!card || this._pointerMoved) return;
+      this.activateCard(Number(card.dataset.cardIndex));
     };
     this._onKeyDown = (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       const card = event.target.closest?.('.person-card');
-      if (!card || this.transition || event.target.closest?.('.focus-close')) return;
+      if (!card) return;
       event.preventDefault();
       if (event.repeat) return;
-      this.focusPerson(Number(card.dataset.cardIndex));
+      this.activateCard(Number(card.dataset.cardIndex));
     };
 
     this.controls.addEventListener('change', this._onControlChange);
@@ -114,6 +130,7 @@ export class PeopleVisualizer {
     window.addEventListener('resize', this._resize);
     window.addEventListener('pointermove', this._onPointerMove, { passive: true });
     window.addEventListener('pointerup', this._onPointerUp, { passive: true });
+    window.addEventListener('pointercancel', this._onPointerCancel, { passive: true });
     const element = this.renderer.domElement;
     element.addEventListener('pointerdown', this._onPointerDown, { capture: true, passive: true });
     element.addEventListener('click', this._onClick);
@@ -225,7 +242,6 @@ export class PeopleVisualizer {
     this.controls.update();
     this.controls.enabled = false;
     this._startCamera.copy(this.camera.position);
-    this._startCameraQuaternion.copy(this.camera.quaternion);
     this._startTarget.copy(this.controls.target);
   }
 
@@ -238,6 +254,7 @@ export class PeopleVisualizer {
 
   changeLayout(layout, duration = APP_CONFIG.animationMs) {
     if (this.destroyed || !this.targets[layout] || !this.objects.length) return;
+    this._pendingFocusIndex = null;
     this.clearFocus(false);
     this.prepareCameraFlight();
     this.layout = layout;
@@ -251,13 +268,6 @@ export class PeopleVisualizer {
     );
     this._endCamera.set(frame.position.x, frame.position.y, frame.position.z);
     this._endTarget.set(0, 0, 0);
-    // Camera looks down its -Z axis (unlike Object3D's +Z). Using the
-    // generic orientation helper here would make the overview flip 180°.
-    this._endCameraQuaternion.setFromRotationMatrix(
-      this._cameraLookAtMatrix.lookAt(
-        this._endCamera, this._endTarget, this._worldUp,
-      ),
-    );
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.transition = {
       kind: 'layout', startedAt: null,
@@ -266,6 +276,16 @@ export class PeopleVisualizer {
     };
     this.container.classList.add('is-animating');
     this.requestRender();
+  }
+
+  /** A click during a layout animation should not be silently discarded. */
+  activateCard(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.objects.length) return;
+    if (this.transition?.kind === 'layout') {
+      this._pendingFocusIndex = index;
+      return;
+    }
+    this.focusPerson(index);
   }
 
   /**
@@ -277,9 +297,9 @@ export class PeopleVisualizer {
     const object = this.objects[index];
     if (this.focusedIndex === index) return;
     this.prepareCameraFlight();
-    if (this.focusedIndex !== null) hideFocusedCard(this.objects[this.focusedIndex]?.element);
+    if (this.focusedIndex !== null) this.objects[this.focusedIndex]?.element.classList.remove('is-focus-target');
     this.focusedIndex = index;
-    showFocusedCard(object.element, this.people[index]);
+    object.element.classList.add('is-focus-target');
     this.container.classList.add('is-focused');
 
     // Fly to the FRONT of the selected card. Backside is intentionally mirrored
@@ -288,9 +308,6 @@ export class PeopleVisualizer {
     const distance = getCardFocusDistance(this.lastWidth, this.lastHeight, this.camera.fov);
     this._endTarget.copy(object.position);
     this._endCamera.copy(object.position).addScaledVector(direction, distance);
-    // Align the camera to the actual tile plane, so even Sphere/Helix cards
-    // become straight and readable instead of remaining at an oblique angle.
-    this._endCameraQuaternion.copy(object.quaternion);
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.transition = {
       kind: 'focus', startedAt: null,
@@ -302,7 +319,7 @@ export class PeopleVisualizer {
 
   clearFocus(resetCamera = true) {
     const hadFocus = this.focusedIndex !== null;
-    if (hadFocus) hideFocusedCard(this.objects[this.focusedIndex]?.element);
+    if (hadFocus) this.objects[this.focusedIndex]?.element.classList.remove('is-focus-target');
     this.focusedIndex = null;
     this.container.classList.remove('is-focused');
     if (hadFocus) this.onClearSelection();
@@ -338,8 +355,6 @@ export class PeopleVisualizer {
       if (!this.transition) {
         this.camera.position.copy(this._endCamera);
         this.controls.target.copy(this._endTarget);
-        this.camera.up.set(0, 1, 0);
-        this.camera.quaternion.copy(tile.quaternion);
       }
     } else {
       const targets = this.targets[this.layout];
@@ -374,9 +389,8 @@ export class PeopleVisualizer {
       }
       this.camera.position.lerpVectors(this._startCamera, this._endCamera, eased);
       this.controls.target.lerpVectors(this._startTarget, this._endTarget, eased);
-      this.camera.quaternion.slerpQuaternions(
-        this._startCameraQuaternion, this._endCameraQuaternion, eased,
-      );
+      this.camera.up.set(0, 1, 0);
+      this.camera.lookAt(this.controls.target);
       this.needsRender = true;
       if (eased >= 1) {
         if (t.kind === 'layout') {
@@ -394,21 +408,23 @@ export class PeopleVisualizer {
         } else {
           this.camera.position.copy(this._endCamera);
           this.controls.target.copy(this._endTarget);
-          const tile = this.objects[this.focusedIndex];
           this.camera.up.set(0, 1, 0);
-          this.camera.quaternion.copy(tile.quaternion);
+          this.camera.lookAt(this.controls.target);
           const damping = this.controls.enableDamping;
           this.controls.enableDamping = false;
           this.controls.update();
           this.controls.enableDamping = damping;
         }
         this.finishTransition();
+        if (t.kind === 'layout' && this._pendingFocusIndex !== null) {
+          const index = this._pendingFocusIndex;
+          this._pendingFocusIndex = null;
+          this.activateCard(index);
+        }
       }
     }
     this.idleFrames++;
-    // OrbitControls computes its own lookAt; do not let it overwrite the
-    // quaternion-slerped flight. Synchronize it only after the flight finishes.
-    if (!this.transition) this.controls.update();
+    this.controls.update();
     if (this.needsRender) {
       this.renderer.render(this.scene, this.camera);
       this.needsRender = false;
@@ -432,6 +448,7 @@ export class PeopleVisualizer {
     window.removeEventListener('resize', this._resize);
     window.removeEventListener('pointermove', this._onPointerMove);
     window.removeEventListener('pointerup', this._onPointerUp);
+    window.removeEventListener('pointercancel', this._onPointerCancel);
     document.removeEventListener('visibilitychange', this._onVisibility);
     const element = this.renderer.domElement;
     element.removeEventListener('pointerdown', this._onPointerDown, true);
